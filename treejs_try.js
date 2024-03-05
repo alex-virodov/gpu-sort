@@ -64,6 +64,7 @@ function checkLineIs(index, expected, actual) {
         throw new Error(`Expected ${index} to be "${expected}", got="${actual}"`);
     }
 }
+
 function checkLineStartsWith(index, expected, actual) {
     if (!actual.startsWith(expected)) {
         throw new Error(`Expected ${index} to start with "${expected}", got="${actual}"`);
@@ -73,57 +74,75 @@ function checkLineStartsWith(index, expected, actual) {
 async function readPly(url) {
     console.log('readPly url=' + url);
     const response = await fetch(url);
-    console.log(response);
     // https://stackoverflow.com/questions/48447550/how-can-i-send-a-binary-data-blob-using-fetch-and-formdata
     const binaryContent = await response.blob();
-    console.log('binaryContent=', binaryContent);
+    // console.log('binaryContent=', binaryContent);
 
     // https://stackoverflow.com/questions/49653279/getting-the-binary-content-of-a-blob
     const buffer = await binaryContent.arrayBuffer();
-    console.log('buffer=', buffer);
+    // console.log('buffer=', buffer);
 
     // TODO: more robust header decoding, allow arbitrary len.
     const headerView = new Int8Array(buffer, 0, 1024);
-    console.log('headerView=', headerView);
+    // console.log('headerView=', headerView);
 
     var headerString = new TextDecoder().decode(headerView);
-    console.log('headerString=', headerString);
+    // console.log('headerString=', headerString);
 
     const lines = headerString.split(/\n/);
-    console.log('lines=', lines);
+    // console.log('lines=', lines);
 
+    // Read the first few lines of header that are expected to be fairly constant.
     checkLineIs('lines[0]', 'ply', lines[0]);
     checkLineIs('lines[1]', 'format binary_little_endian 1.0', lines[1]); // todo: support other formats.
     
     checkLineStartsWith('lines[2]', 'element vertex ', lines[2]);
-    const vertex_count = parseInt(lines[2].substring('element vertex '.length));
-    console.log(`vertex_count=${vertex_count}`);
+    const numVertices = parseInt(lines[2].substring('element vertex '.length));
+    console.log(`numVertices=${numVertices}`);
 
+    // Read the variable list of properties until the 'end_header'.
     let properties = []
-    let idx = 3;
-    while (lines[idx] != 'end_header') {
-        console.log(`parsing lines[${idx}]=${lines[idx]}`);
-        checkLineStartsWith('lines[${idx}]', 'property ', lines[idx]);
-        idx++;
+    let lineIndex = 3;
+    while (lines[lineIndex] != 'end_header') {
+        // console.log(`parsing lines[${lineIndex}]=${lines[lineIndex]}`);
+        checkLineStartsWith(`lines[${lineIndex}]`, 'property ', lines[lineIndex]);
+        const propertyParts = lines[lineIndex].split(' ');
+        properties.push({type: propertyParts[1], name: propertyParts[2]});
+        lineIndex++;
     }
+    console.log('properties=', properties);
 
+    // Find the start of the binary data by locating the 'end_header' string.
+    const endHeaderLocation = headerString.indexOf('end_header');
+    console.assert(endHeaderLocation != -1); // should really have it.
+    const startBinaryLocation = endHeaderLocation + 'end_header'.length + 1; // todo: why '+1'? Shouldn't need it, but without it the buffer size doesn't match expected from vertex size * count.
+    // console.log('startBinaryLocation=', startBinaryLocation);
+    const dataBuffer = buffer.slice(startBinaryLocation);
 
+    /* No need to parse vertices, we'll do that with OpenGL attribute bindings (I hope :)
 
+    // Structured binary reading: https://github.com/gkjohnson/js-struct-data-view
+    // For now, assuming properties are a number of floats followed by a number of uchars, which is
+    // true for the data I have.
+    let numFloatsCounter = 0;
+    while (numFloatsCounter < properties.length && 
+        properties[numFloatsCounter].type == 'float') { numFloatsCounter++; }
+    let numUcharsCounter = numFloatsCounter;
+    while (numUcharsCounter < properties.length && 
+        properties[numUcharsCounter].type == 'uchar') { numUcharsCounter++; }
+    console.log('numFloatsCounter=', numFloatsCounter, 'numUcharsCounter=', numUcharsCounter)
+    
+    const numFloats = numFloatsCounter;
+    const numUchars = numUcharsCounter - numFloatsCounter; // Note: the uchars counter includes floats.
+    console.log('numFloats=', numFloats, 'numUchars=', numUchars);
 
-
-    /*if (lines[0] != 'ply') {
-        throw new Error('Expected first line to be "ply", got=' + lines[0]);
-    }
-
-    if (lines[1] != 'format binary_little_endian 1.0') {
-        throw new Error('Expected first line to be "format binary_little_endian 1.0", got=' + lines[1]);
-    }*/
-
-
-
+    const vertexSizeInBytes = numFloats * 4 + numUchars;
+    console.log(`vertexSizeInBytes=${vertexSizeInBytes}, numVertices=${numVertices}, dataBuffer.byteLength=${dataBuffer.byteLength}`);
+    console.assert(numVertices * vertexSizeInBytes == dataBuffer.byteLength);
+    */
 
     console.log('readPly end');
-    return {'a': 4, 'foo': 23};
+    return {properties: properties, dataBuffer: dataBuffer};
 }
 
 function animate() {
@@ -137,7 +156,5 @@ function animate() {
 }
 animate();
 
-console.log('Start read');
 const data = await readPly('data/models/train/input.ply');
-console.log('End read');
 console.log('readPly result=', data);
