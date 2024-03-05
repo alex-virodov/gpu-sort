@@ -9,6 +9,29 @@
         }
         </script>
         <script type="module" src="treejs_try.js"></script>
+
+		<script type="x-shader/x-vertex" id="vertexshader">
+            varying vec4 vColor;
+            attribute vec4 color;
+
+			void main() {
+				vColor = color.rgba;
+                vec3 pos_flipped = position;
+                pos_flipped.y = -pos_flipped.y;
+				vec4 mvPosition = modelViewMatrix * vec4( pos_flipped, 1.0 );
+				gl_PointSize = 2.0;
+				gl_Position = projectionMatrix * mvPosition;
+			}
+
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentshader">
+			varying vec4 vColor;
+
+			void main() {
+				gl_FragColor = vColor;
+			}
+		</script>        
     </head>
     <body>
         <!-- <canvas width="640px" height="480px" id="canvas_3d"></canvas> -->
