@@ -181,6 +181,7 @@ console.log('readPly result=', data);
     console.log('interleavedBuffer=', interleavedBuffer);
     const ibattrXyz = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0);
     const ibattrRgb = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 6);
+    const ibattrSh0123 = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 9);
     console.log('ibattrXyz=', ibattrXyz);
 
 
@@ -209,6 +210,7 @@ console.log('readPly result=', data);
     // geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
     geometry.setAttribute( 'position', ibattrXyz);
     geometry.setAttribute( 'color', ibattrRgb);
+    geometry.setAttribute( 'sh0123', ibattrSh0123);
     // const material = new THREE.PointsMaterial( { color: 0x888888, size: 0.1 } );
     const points = new THREE.Points( geometry, material );
     scene.add( points );
