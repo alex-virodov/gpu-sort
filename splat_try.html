@@ -1,0 +1,258 @@
+<html>
+    <head>
+        <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+            }
+        }
+        </script>
+
+		<script type="x-shader/x-vertex" id="vertexshader">
+            varying vec4 vColor;
+            attribute vec4 color;
+            attribute vec4 scale;
+            attribute vec4 rot;
+
+			void main() {
+                float C0 = 0.2821; // https://github.com/graphdeco-inria/gaussian-splatting/blob/main/utils/sh_utils.py#L26
+				// vColor = vec4(0.5 + C0 * color.r, 0.5 + C0 * color.g, 0.5 + C0 * color.b, 1.0);
+                vColor = vec4(color.rgb, 1.0);
+                
+                vec3 pos_flipped = position;
+                pos_flipped.x = -pos_flipped.x; // empirical, from text on the train.
+                pos_flipped.y = -pos_flipped.y; // todo: make part of mvp matrix.
+				vec4 mvPosition = modelViewMatrix * vec4( pos_flipped, 1.0 );
+
+                // Compute 3d covariance.
+                // Ported from https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/59f5f77e3ddbac3ed9db93ec2cfe99ed6c5d121d/cuda_rasterizer/forward.cu#L118
+                mat3 S = mat3(1.0);
+                const float mod = 1.0; // todo: make uniform so we can change from gui.
+	            S[0][0] = mod * scale.x;
+	            S[1][1] = mod * scale.y;
+	            S[2][2] = mod * scale.z;
+                
+                mat3 R = mat3(1.0); // todo: implement rotations.
+                mat3 M = S * R;
+                mat3 Sigma = transpose(M) * M;
+
+                // Compute 2d covariance.
+                // Ported from https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/59f5f77e3ddbac3ed9db93ec2cfe99ed6c5d121d/cuda_rasterizer/forward.cu#L89
+                const float focal_x = 1.0; // todo: what is this?
+                const float focal_y = 1.0; // todo: what is this?
+                vec4 t = mvPosition;
+
+                mat3 J = mat3(focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
+                              0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
+                              0, 0, 0);
+
+                mat3 W = mat3(modelViewMatrix);
+                mat3 T = W * J;
+                mat3 Vrk = Sigma;
+
+                mat3 cov3 = transpose(T) * transpose(Vrk) * T;
+                vec3 cov = vec3(cov3[0][0], cov3[0][1], cov3[1][1]);
+
+                // Ported from https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/59f5f77e3ddbac3ed9db93ec2cfe99ed6c5d121d/cuda_rasterizer/forward.cu#L218C1-L233C1
+                // Invert covariance (EWA algorithm)
+                float det = (cov.x * cov.z - cov.y * cov.y);
+                if (det == 0.0f)
+                    return;
+                float det_inv = 1.f / det;
+                vec3 conic = vec3(cov.z * det_inv, -cov.y * det_inv, cov.x * det_inv);
+            
+                // Compute extent in screen space (by finding eigenvalues of
+                // 2D covariance matrix). Use extent to compute a bounding rectangle
+                // of screen-space tiles that this Gaussian overlaps with. Quit if
+                // rectangle covers 0 tiles. 
+                float mid = 0.5f * (cov.x + cov.z);
+                float lambda1 = mid + sqrt(max(0.1f, mid * mid - det));
+                float lambda2 = mid - sqrt(max(0.1f, mid * mid - det));
+                // float my_radius = ceil(3.f * sqrt(max(lambda1, lambda2)));                
+
+				gl_PointSize = sqrt(max(lambda1, lambda2)) * 100.0;
+				gl_Position = projectionMatrix * mvPosition;
+			}
+
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentshader">
+			varying vec4 vColor;
+
+			void main() {
+				// gl_FragColor = vColor;
+                gl_FragColor = vec4(gl_PointCoord.xy, 0.0, 1.0);
+			}
+		</script>        
+        <script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// const [canvasWidth, canvasHeight] = [window.innerWidth, window.innerHeight]
+const [canvasWidth, canvasHeight] = [400, 400]
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(/*fov=*/75, canvasWidth / canvasHeight, 0.1, 1000 );
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize( canvasWidth, canvasHeight );
+renderer.domElement.style.border = "1px solid black"; 
+document.body.appendChild( renderer.domElement );
+
+// TODO: wasd camera controls.
+const controls = new OrbitControls( camera, renderer.domElement );
+camera.position.z = 2;
+controls.rotateSpeed = 0.2
+controls.enablePan = false
+controls.update()
+
+const size = 10; const divisions = 10; 
+const gridHelper = new THREE.GridHelper( size, divisions ); 
+scene.add( gridHelper );
+
+// Add box.
+{
+    // const geometry = new THREE.BoxGeometry( 0.2, 0.2, 0.2 );
+    // const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+    // const cube = new THREE.Mesh( geometry, material );
+    // scene.add( cube );
+
+    const axesHelper = new THREE.AxesHelper(2);
+    scene.add( axesHelper );
+}
+
+// https://stackoverflow.com/questions/29610102/orbitcontrols-how-to-load-last-view-position-and-rotation
+function loadControls(controls) {
+    const stateJSON = localStorage.getItem(`orbitControls`);
+    console.log(stateJSON);
+  
+    if (stateJSON) {
+        const { target0, position0, zoom0 } = JSON.parse(stateJSON);
+        controls.target0.copy(target0);
+        controls.position0.copy(position0);
+        controls.zoom0 = zoom0;
+        controls.reset();
+    }
+};
+
+function saveControls(controls) {
+    controls.saveState();
+    const { target0, position0, zoom0 } = controls;
+    const state = { target0, position0, zoom0 };
+    localStorage.setItem(`orbitControls`, JSON.stringify(state));
+};
+
+document.addEventListener(`visibilitychange`, () => {
+    saveControls(controls);
+});
+loadControls(controls);
+
+function countPlyFloatsUchars(properties) {
+    // For now, assuming properties are a number of floats followed by a number of uchars, which is
+    // true for the data I have.
+    let numFloatsCounter = 0;
+    while (numFloatsCounter < properties.length && 
+        properties[numFloatsCounter].type == 'float') { numFloatsCounter++; }
+    let numUcharsCounter = numFloatsCounter;
+    while (numUcharsCounter < properties.length && 
+        properties[numUcharsCounter].type == 'uchar') { numUcharsCounter++; }
+    console.log('numFloatsCounter=', numFloatsCounter, 'numUcharsCounter=', numUcharsCounter)
+    
+    const numFloats = numFloatsCounter;
+    const numUchars = numUcharsCounter - numFloatsCounter; // Note: the uchars counter includes floats.
+    console.log('numFloats=', numFloats, 'numUchars=', numUchars);
+    
+    return {numFloats: numFloats, numUchars: numUchars};
+}
+
+function findPlyPropertyIndex(properties, propertyName) {
+    for (let i in properties) {
+        if (properties[i].name == propertyName) {
+            console.log(`findPlyPropertyIndex propertyName=${propertyName}, i=${i}`)
+            return +i; // Note: i is a string...
+        }
+    }
+    throw new Error(`Not found: propertyName=${propertyName}, properties=${JSON.stringify(properties)}`);
+}
+
+async function makePlyFromFloatArray(propertyNames, floatArray) {
+    // Creates the same result as 'readPly', but from a given float array.
+    const properties = []; // todo: map?
+    for (let i in propertyNames) {
+        properties.push({type: 'float', name: propertyNames[i]});
+    }
+
+    const dataBuffer = new Float32Array(floatArray);
+    return {properties: properties, dataBuffer: dataBuffer};
+}
+
+function animate() {
+	requestAnimationFrame( animate );
+
+    // cube.rotation.x += 0.01;
+    // cube.rotation.y += 0.01;
+    controls.update()
+
+	renderer.render( scene, camera );
+}
+animate();
+
+const data = await makePlyFromFloatArray(
+    ['x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity', 'scale_0', 'scale_1', 'scale_2', 'rot_0', 'rot_1', 'rot_2', 'rot_3'],
+    [0.0, 0.0, 0.0, 0.5, 0.5, 0.5,                1.0,       1.0, 1.0, 1.0,                   1.0, 0.0, 0.0, 0.0,
+     /*1.0, 0.0, 0.0, 1.0, 0.0, 0.0,                1.0,       1.0, 1.0, 1.0,                   1.0, 0.0, 0.0, 0.0,
+     0.0, 1.0, 0.0, 0.0, 1.0, 0.0,                1.0,       1.0, 1.0, 1.0,                   1.0, 0.0, 0.0, 0.0,
+0.0, 0.0, 1.0, 0.0, 0.0, 1.0,                1.0,       1.0, 1.0, 1.0,                   1.0, 0.0, 0.0, 0.0*/],
+);
+console.log('readPly result=', data);
+
+// Point cloud example from https://threejs.org/docs/index.html#api/en/materials/PointsMaterial
+{
+    const dataCounts = countPlyFloatsUchars(data.properties);
+    const interleavedBuffer = new THREE.InterleavedBuffer(new Float32Array(data.dataBuffer), /*stride=*/dataCounts.numFloats);
+    console.log('interleavedBuffer=', interleavedBuffer);
+    const ibattrXyz = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, findPlyPropertyIndex(data.properties, 'x'));
+    const ibattrRgb = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, findPlyPropertyIndex(data.properties, 'f_dc_0'));
+    const ibattrScl = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, findPlyPropertyIndex(data.properties, 'scale_0'));
+    const ibattrRot = new THREE.InterleavedBufferAttribute(interleavedBuffer, 4, findPlyPropertyIndex(data.properties, 'rot_0'));
+    console.log('ibattrXyz=', ibattrXyz);
+    console.log('ibattrRgb=', ibattrRgb);
+
+
+
+    const material = new THREE.ShaderMaterial( {
+        uniforms: {
+        },
+        vertexShader: document.getElementById( 'vertexshader' ).textContent,
+        fragmentShader: document.getElementById( 'fragmentshader' ).textContent
+    } );
+
+
+    /*const vertices = [];
+
+    for ( let i = 0; i < 1000; i ++ ) {
+        const x = THREE.MathUtils.randFloatSpread( 20 );
+        const y = THREE.MathUtils.randFloatSpread( 20 );
+        const z = THREE.MathUtils.randFloatSpread( 20 );
+
+        vertices.push( x, y, z );
+    }*/
+
+    const geometry = new THREE.BufferGeometry();
+    // geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+    geometry.setAttribute( 'position', ibattrXyz);
+    geometry.setAttribute( 'color', ibattrRgb);
+    geometry.setAttribute( 'scale', ibattrScl);
+    geometry.setAttribute( 'rot', ibattrRot);
+    // const material = new THREE.PointsMaterial( { color: 0x888888, size: 0.1 } );
+    const points = new THREE.Points( geometry, material );
+    scene.add( points );
+}
+       
+       </script>
+    </head>
+    <body>
+        <!-- <canvas width="640px" height="480px" id="canvas_3d"></canvas> -->
+    </body>
+</html>
