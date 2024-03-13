@@ -1,0 +1,322 @@
+<html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+        <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+            }
+        }
+        </script>
+
+		<script type="x-shader/x-vertex" id="vertexshader">
+            varying vec4 vColor;
+            const vec2 viewportSize = vec2(400, 400); // todo: pass from js code.
+            uniform sampler2D dataTexture;
+            uniform sampler2D indexTexture;
+
+            void main() {
+                // vColor = vec4(position.xyz, 1.0);
+                // vColor = texture2D(dataTexture, vec2(0.0, position.x / float(dataTextureSize.y)));
+                ivec2 indexTextureSize = textureSize(indexTexture, 0);
+                int indexWidth = indexTextureSize.x;
+                int posIndex = int(position.x);
+                int index = int(texelFetch(indexTexture, ivec2(posIndex % indexWidth, posIndex / indexWidth), 0).r);
+
+                // index = int(position.x);
+                
+                ivec2 dataTextureSize = textureSize(dataTexture, 0);
+                int dataWidth = dataTextureSize.x;
+                vColor = texelFetch(dataTexture, ivec2(index % dataWidth, index / dataWidth), 0);
+
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(vColor.xyz, 1.0);
+
+                const float radius = 0.05; // In world units.
+                gl_PointSize = viewportSize.y * projectionMatrix[1][1] * radius / gl_Position.w;
+                // gl_PointSize = 20.0;
+
+                // Color according to draw order.
+                // vColor = vec4(0.0, float(posIndex) / float(indexTextureSize.x * indexTextureSize.y), 0.0, 1.0);
+
+			}
+
+		</script>
+
+        <script type="x-shader/x-fragment" id="fragmentshader">
+			varying vec4 vColor;
+            varying vec3 vCov;
+
+			void main() {
+                gl_FragColor = vec4(vColor.rgb, 1.0);
+			}
+		</script>        
+
+
+        <script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// const [canvasWidth, canvasHeight] = [window.innerWidth, window.innerHeight]
+const [canvasWidth, canvasHeight] = [400, 400]
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(/*fov=*/75, canvasWidth / canvasHeight, 0.1, 1000 );
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize( canvasWidth, canvasHeight );
+renderer.domElement.style.border = "1px solid black"; 
+document.body.appendChild( renderer.domElement );
+
+// TODO: wasd camera controls.
+camera.position.z = 5;
+const controls = new OrbitControls( camera, renderer.domElement );
+controls.rotateSpeed = 0.2;
+controls.enablePan = false;
+controls.update();
+
+const size = 10; const divisions = 10; 
+const gridHelper = new THREE.GridHelper( size, divisions ); 
+scene.add( gridHelper );
+
+// Add box.
+{
+    // const geometry = new THREE.BoxGeometry( 0.2, 0.2, 0.2 );
+    // const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+    // const cube = new THREE.Mesh( geometry, material );
+    // scene.add( cube );
+
+    const axesHelper = new THREE.AxesHelper(2);
+    scene.add( axesHelper );
+}
+
+// https://stackoverflow.com/questions/29610102/orbitcontrols-how-to-load-last-view-position-and-rotation
+function loadControls(controls) {
+    const stateJSON = localStorage.getItem(`orbitControls`);
+    console.log(stateJSON);
+  
+    if (stateJSON) {
+        const { target0, position0, zoom0 } = JSON.parse(stateJSON);
+        controls.target0.copy(target0);
+        controls.position0.copy(position0);
+        controls.zoom0 = zoom0;
+        controls.reset();
+    }
+};
+
+function saveControls(controls) {
+    controls.saveState();
+    const { target0, position0, zoom0 } = controls;
+    const state = { target0, position0, zoom0 };
+    localStorage.setItem(`orbitControls`, JSON.stringify(state));
+};
+
+document.addEventListener(`visibilitychange`, () => {
+    saveControls(controls);
+});
+loadControls(controls);
+
+const numPointsX = 1024;
+const numPointsY = 4;
+const stride = 4;
+const dataBuffer = new Float32Array(numPointsX * numPointsY * stride);
+const indexBuffer = new Float32Array(numPointsX * numPointsY);
+
+// todo: must be a better way to convince three.js to draw N points without giving it position.
+const dummyPosBuffer = new Float32Array(numPointsX * numPointsY);
+
+// Generate random xyz points (todo: and store as texture later).
+{
+    const boxSize = 2;
+    const rng = new Math.seedrandom(1);
+    for (let i = 0; i < dataBuffer.length; i++) {
+        dataBuffer[i] = rng.quick() * boxSize * 2 - boxSize;
+    }
+    for (let i = 0; i < dummyPosBuffer.length; i++) {
+        dummyPosBuffer[i] = i;
+    }
+    for (let i = 0; i < indexBuffer.length; i++) {
+        indexBuffer[i] = i;
+    }
+}
+
+
+// Point cloud example from https://threejs.org/docs/index.html#api/en/materials/PointsMaterial
+{
+    const interleavedBuffer = new THREE.InterleavedBuffer(dataBuffer, /*stride=*/stride);
+    console.log('interleavedBuffer=', interleavedBuffer);
+    const ibattrXyz = new THREE.InterleavedBufferAttribute(interleavedBuffer, 4, 0);
+    console.log('ibattrXyz=', ibattrXyz);
+
+    const dataTexture = new THREE.DataTexture( dataBuffer, /*width=*/numPointsX * stride / 4, /*height=*/numPointsY, 
+        /*format=*/THREE.RGBAFormat, /*type=*/THREE.FloatType);
+    dataTexture.needsUpdate = true;
+
+    var indexTexture = new THREE.DataTexture( indexBuffer, /*width=*/numPointsX, /*height=*/numPointsY, 
+        /*format=*/THREE.RedFormat, /*type=*/THREE.FloatType);
+    indexTexture.needsUpdate = true;
+
+
+    const material = new THREE.ShaderMaterial( {
+        uniforms: {
+            // dataTexture: dataTexture,
+            dataTexture: { type: "t", value: dataTexture },
+            indexTexture: { type: "t", value: indexTexture },
+        },
+        vertexShader: document.getElementById( 'vertexshader' ).textContent,
+        fragmentShader: document.getElementById( 'fragmentshader' ).textContent
+    } );
+    material.depthTest = false;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( dummyPosBuffer, 1 ) );
+    // geometry.setAttribute( 'position', ibattrXyz);
+    var points = new THREE.Points( geometry, material );
+    scene.add( points );
+}
+
+function sort1() {
+    // Intentionally the most simple (thus inefficient) sorting method just to check correctness.
+    let arr = [];
+    console.time("sort1");
+
+    points.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, points.matrixWorld);
+    const te = points.modelViewMatrix.elements;
+    // console.log(te);
+
+    for (let i = 0; i < numPointsX * numPointsY; i++) {
+        const x = dataBuffer[i*stride + 0];
+        const y = dataBuffer[i*stride + 1];
+        const z = dataBuffer[i*stride + 2];
+
+        // todo: can discard te[14] - it adds same constant offset to
+        // all points and thus doesn't affect order.
+        const depth = te[2] * x + te[6] * y + te[10] * z + te[14];
+        arr.push([i, depth]);
+    }
+    arr.sort(function (a, b) { return a[1] - b[1];})
+
+    for (let i = 0; i < numPointsX * numPointsY; i++) {
+        indexBuffer[i] = arr[i][0];
+    }
+    // console.log(indexBuffer);
+    indexTexture.needsUpdate = true;
+    console.timeEnd("sort1");
+}
+
+
+function sort2() {
+    // Make aliases so that there are less code modifications for the sort code below.
+    let vertexCount = numPointsX * numPointsY;
+    points.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, points.matrixWorld);
+    const viewProj = points.modelViewMatrix.elements;
+    const f_buffer = dataBuffer;
+
+    // Implementation from https://github.com/antimatter15/splat/blob/main/main.js#L436
+    console.time("sort2");
+    let maxDepth = -Infinity;
+    let minDepth = Infinity;
+    let sizeList = new Int32Array(vertexCount);
+    for (let i = 0; i < vertexCount; i++) {
+        let depth =
+            ((viewProj[2] * f_buffer[stride * i + 0] +
+                viewProj[6] * f_buffer[stride * i + 1] +
+                viewProj[10] * f_buffer[stride * i + 2]) *
+                4096) | 0;
+        sizeList[i] = depth;
+        if (depth > maxDepth) maxDepth = depth;
+        if (depth < minDepth) minDepth = depth;
+    }
+
+    // This is a 16 bit single-pass counting sort
+    let depthInv = (256 * 256) / (maxDepth - minDepth);
+    let counts0 = new Uint32Array(256 * 256);
+    for (let i = 0; i < vertexCount; i++) {
+        sizeList[i] = ((sizeList[i] - minDepth) * depthInv) | 0;
+        counts0[sizeList[i]]++;
+    }
+    let starts0 = new Uint32Array(256 * 256);
+    for (let i = 1; i < 256 * 256; i++)
+        starts0[i] = starts0[i - 1] + counts0[i - 1];
+    // depthIndex = new Uint32Array(vertexCount);
+    const depthIndex = indexBuffer;
+    for (let i = 0; i < vertexCount; i++)
+        depthIndex[starts0[sizeList[i]]++] = i;
+
+    indexTexture.needsUpdate = true;
+    console.timeEnd("sort2");
+}
+
+const sort3_vertexCount = numPointsX * numPointsY;
+const sort3_sizeList = new Int32Array(sort3_vertexCount);
+const sort3_counts0 = new Uint32Array(256 * 256);
+const sort3_starts0 = new Uint32Array(256 * 256);
+
+function sort3() {
+    // Same as sort2 but with preallocated buffers.
+    // Make aliases so that there are less code modifications for the sort code below.
+    points.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, points.matrixWorld);
+    const viewProj = points.modelViewMatrix.elements;
+    const f_buffer = dataBuffer;
+
+    // Only these buffers need to be reset, the rest are overwritten anyway.
+    sort3_counts0.fill(0);
+    sort3_starts0.fill(0);
+
+    // Implementation from https://github.com/antimatter15/splat/blob/main/main.js#L436
+    console.time("sort3");
+    let maxDepth = -Infinity;
+    let minDepth = Infinity;
+    for (let i = 0; i < sort3_vertexCount; i++) {
+        let depth =
+            ((viewProj[2] * f_buffer[stride * i + 0] +
+                viewProj[6] * f_buffer[stride * i + 1] +
+                viewProj[10] * f_buffer[stride * i + 2]) *
+                4096) | 0;
+        sort3_sizeList[i] = depth;
+        if (depth > maxDepth) maxDepth = depth;
+        if (depth < minDepth) minDepth = depth;
+    }
+
+    // This is a 16 bit single-pass counting sort
+    let depthInv = (256 * 256) / (maxDepth - minDepth);
+    for (let i = 0; i < sort3_vertexCount; i++) {
+        sort3_sizeList[i] = ((sort3_sizeList[i] - minDepth) * depthInv) | 0;
+        sort3_counts0[sort3_sizeList[i]]++;
+    }
+    for (let i = 1; i < 256 * 256; i++)
+    sort3_starts0[i] = sort3_starts0[i - 1] + sort3_counts0[i - 1];
+    // depthIndex = new Uint32Array(vertexCount);
+    const depthIndex = indexBuffer;
+    for (let i = 0; i < sort3_vertexCount; i++)
+        depthIndex[sort3_starts0[sort3_sizeList[i]]++] = i;
+
+    indexTexture.needsUpdate = true;
+    console.timeEnd("sort3");    
+}
+
+
+var sortRuns = 600;
+function animate() {
+	requestAnimationFrame( animate );
+    if (sortRuns > 0) {
+        sort3();
+        sortRuns--;
+    }
+
+    // camera.rotation.z += 0.01;
+    // cube.rotation.x += 0.01;
+    // cube.rotation.y += 0.01;
+    // controls.update()
+
+	renderer.render( scene, camera );
+    // console.log('modelview matrix=', points.modelViewMatrix);
+}
+animate();
+
+       </script>
+    </head>
+    <body>
+        <!-- <canvas width="640px" height="480px" id="canvas_3d"></canvas> -->
+    </body>
+</html>
