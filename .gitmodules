@@ -1,0 +1,3 @@
+[submodule "pyavlib"]
+	path = pyavlib
+	url = https://github.com/alex-virodov/pyavlib.git
