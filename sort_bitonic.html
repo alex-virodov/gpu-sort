@@ -1,0 +1,290 @@
+<html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+        <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+            }
+        }
+        </script>
+
+        <script type="x-shader/x-fragment" id="screenquad_vertexshader">
+			void main() {
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+			}
+		</script>        
+
+        <script type="x-shader/x-fragment" id="screenquad_fragmentshader">
+            uniform vec2 res;
+			void main() {
+                gl_FragColor = vec4(gl_FragCoord.xy / res.xy, 0.0, 1.0);
+			}
+		</script>        
+
+        <script type="x-shader/x-fragment" id="first_pass_vertexshader">
+			void main() {
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+			}
+		</script>        
+
+        <script type="x-shader/x-fragment" id="first_pass_fragmentshader">
+            // First pass - transform points by a 3x3 matrix (a 4x4 is not necessary as it only
+            // adds a constant value to depth). Write depth (R) and index (G).
+
+            uniform mat3 transform;
+            uniform sampler2D pointTexture;
+            uniform vec2 res;
+
+			void main() {
+                ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
+                int index = int(icoord.y * int(res.x) + icoord.x);
+                vec4 point = texelFetch(pointTexture, icoord, 0);
+                vec3 point_transformed = transform * point.xyz; // Assuming compiler will discard x/y automatically.
+                gl_FragColor = vec4(point_transformed.z, float(index), 0.0, 1.0);
+			}
+		</script>        
+
+        <script type="x-shader/x-fragment" id="bitonic_fragmentshader">
+            // Bitonic sort. See picture in https://en.wikipedia.org/wiki/Bitonic_sorter#How_the_algorithm_works
+            // More discussion in https://developer.nvidia.com/gpugems/gpugems2/part-vi-simulation-and-numerical-algorithms/chapter-46-improved-gpu-sorting
+
+            uniform sampler2D listTexture; // r is key to sort by, g is value (index).
+            uniform vec2 res;
+            uniform vec2 kj; // the k and j indices of the pass. // todo: how to pass int values?
+
+			void main() {
+                ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
+                int i = int(icoord.y * int(res.x) + icoord.x);
+                int k = int(kj.r);
+                int j = int(kj.g);
+
+                // python code:
+                // is_green_box = (i // k) % 2 == 1
+                // is_top_of_red_box = (i % (j * 2)) < j  # j is size of half of red box.
+                // if is_green_box:
+                //     compare_dir = -1 if is_top_of_red_box else +1
+                //     l = i - j * compare_dir
+                // else:
+                //     compare_dir = +1 if is_top_of_red_box else -1
+                //     l = i + j * compare_dir
+                // max_il = max(arr[i], arr[l])
+                // min_il = min(arr[i], arr[l])
+                // result[i] = min_il if compare_dir > 0 else max_il
+
+                // assuming compiler will optimize repeated conversions and branching. Anyway, ALU should not
+                // be the bottleneck, memory access should be the bottleneck.
+                int is_green_box = int(mod(float(i / k), 2.0));
+                int is_top_of_red_box = mod(float(i), float(j) * 2.0) < float(j) ? 1 : 0;
+                
+                int compare_dir = is_green_box != 0 ? 
+                        (is_top_of_red_box != 0 ? -1 : +1) : 
+                        (is_top_of_red_box != 0 ? +1 : -1);
+                
+                int l = is_green_box != 0 ? i - j * compare_dir : i + j * compare_dir;
+                
+                ivec2 lcoord = ivec2(int(mod(float(l), res.x)), int(floor(float(l) / res.x)));
+        
+                vec4 listItem_i = texelFetch(listTexture, icoord, 0);
+                vec4 listItem_l = texelFetch(listTexture, lcoord, 0);
+
+                if (compare_dir > 0) {
+                    // choose min value.
+                    gl_FragColor = vec4(listItem_i.r < listItem_l.r ? listItem_i.rg : listItem_l.rg, 0.0, 1.0);
+                } else {
+                    // choose max value.
+                    gl_FragColor = vec4(listItem_i.r > listItem_l.r ? listItem_i.rg : listItem_l.rg, 0.0, 1.0);
+                }
+			}
+		</script>        
+
+        <script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// Starting point: https://stackoverflow.com/questions/75565926/threejs-pingpong-approach-for-rendering-to-texture-no-errors-nothing-renderin
+
+var scene;
+var camera;
+var renderer;
+var width = 4;
+var height = 4;
+var numPointsX = width;  // todo: have either width/height or probably best numPointsX/numPointsY.
+var numPointsY = height;
+var stride = 4;
+var finalMaterial;
+var quad;
+
+var pointTexture;
+var textureA;
+var textureB;
+
+var firstPassMaterial;
+var firstPassObject;
+var firstPassScene;
+
+var bitonicPassMaterial;
+var bitonicPassObject;
+var bitonicPassScene;
+
+var plane = new THREE.PlaneGeometry( width, height );
+
+function pointTextureSetup() {
+    const pointBuffer = new Float32Array(numPointsX * numPointsY * stride);
+
+    const boxSize = 2;
+    const rng = new Math.seedrandom(1);
+    for (let i = 0; i < pointBuffer.length; i++) {
+        // pointBuffer[i] = rng.quick() * boxSize * 2 - boxSize;
+        pointBuffer[i] = Math.round((rng.quick() * boxSize * 2) * 100) + 100;
+    }
+    // console.log(pointBuffer);
+
+    pointTexture = new THREE.DataTexture( pointBuffer, 
+        /*width=*/numPointsX * stride / 4, /*height=*/numPointsY, 
+        /*format=*/THREE.RGBAFormat, /*type=*/THREE.FloatType,
+        /*mapping=*/THREE.UVMapping, 
+        /*wrapS=*/THREE.ClampToEdgeWrapping, /*wrapT=*/THREE.ClampToEdgeWrapping,
+        /*magFilter=*/THREE.NearestFilter, /*minFilter=*/THREE.NearestFilter);
+    pointTexture.needsUpdate = true;
+}
+
+function pingPongTextureSetup() {
+    const textureParams = { 
+        minFilter: THREE.NearestFilter, 
+        magFilter: THREE.NearestFilter,
+        format: THREE.RGFormat,
+        type: THREE.FloatType,
+    };
+    textureA = new THREE.WebGLRenderTarget( width, height, textureParams);
+    textureB = new THREE.WebGLRenderTarget( width, height, textureParams);
+}
+
+function firstPassSetup() {
+    firstPassScene = new THREE.Scene();
+    firstPassMaterial = new THREE.ShaderMaterial( {
+        uniforms: {
+            pointTexture: { type: "t", value: pointTexture },
+            res : {type: 'v2', value: new THREE.Vector2(width,height) },
+            transform: {type: 'm3', value: new THREE.Matrix3() }
+        },
+        fragmentShader: document.getElementById( 'first_pass_fragmentshader' ).textContent
+    } );
+    
+    firstPassObject = new THREE.Mesh( plane, firstPassMaterial );
+    firstPassScene.add(firstPassObject);
+}
+
+function bitonicPassSetup() {
+    bitonicPassScene = new THREE.Scene();
+    bitonicPassMaterial = new THREE.ShaderMaterial( {
+        uniforms: {
+            listTexture: { type: "t", value: null },
+            res : {type: 'v2', value: new THREE.Vector2(width,height) },
+            kj: {type: 'v2', value: new THREE.Vector2() } // todo: how to pass int values?
+        },
+        fragmentShader: document.getElementById( 'bitonic_fragmentshader' ).textContent
+    } );
+    
+    bitonicPassObject = new THREE.Mesh( plane, bitonicPassMaterial );
+    bitonicPassScene.add(bitonicPassObject);
+}
+
+function setup() {
+    pointTextureSetup();
+    pingPongTextureSetup();
+    firstPassSetup();
+    bitonicPassSetup();
+
+    //This is the basic scene setup
+    scene = new THREE.Scene();
+    //Note that we're using an orthographic camera here rather than a prespective
+    camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+    camera.position.z = 2;
+
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize( width, height );
+    renderer.domElement.style.border = "1px solid black"; 
+    document.body.appendChild( renderer.domElement );
+
+    //Draw textureB to screen 
+    finalMaterial =  new THREE.MeshBasicMaterial( {map: textureB.texture});
+    quad = new THREE.Mesh( plane, finalMaterial );
+    scene.add(quad);
+}
+
+setup();
+
+
+//Render everything!
+function render() {
+
+    // requestAnimationFrame( render );
+
+    //Draw to textureB
+    renderer.setRenderTarget(textureB);
+    renderer.render(firstPassScene, camera);
+
+    let readFBO = textureB;
+    let writeFBO = textureA;
+
+    console.time("bitonic dispatch");
+    let passCounter = 0;
+    for (let k = 2; k <= width * height; k = k * 2) {
+        for (let j = k / 2; j > 0; j = Math.floor(j / 2)) {
+            // console.log(`k=${k} j=${j}`);
+            renderer.setRenderTarget(writeFBO);
+            bitonicPassMaterial.uniforms.kj.value.x = k;
+            bitonicPassMaterial.uniforms.kj.value.y = j;
+            bitonicPassMaterial.uniforms.listTexture.value = readFBO.texture;
+            renderer.render(bitonicPassScene, camera);
+
+            // swap buffers.
+            let tmpFBO = readFBO;
+            readFBO = writeFBO;
+            writeFBO = tmpFBO;
+
+            passCounter++;
+        }
+    }
+    console.timeEnd("bitonic dispatch");
+    console.log(`passes = ${passCounter}`);
+
+    // renderer.setRenderTarget(writeFBO);
+    // bitonicPassMaterial.uniforms.kj.value.x = 4;
+    // bitonicPassMaterial.uniforms.kj.value.y = 2;
+    // bitonicPassMaterial.uniforms.listTexture.value = readFBO.texture;
+    // renderer.render(bitonicPassScene, camera);
+
+
+    const readBuffer = new Float32Array(width * height * 2);
+    // Note: reading from readFBO because the buffers got swapped. The final result was written
+    // to writeFBO and swapped to be in readFBO.
+    renderer.readRenderTargetPixels(readFBO, 0, 0, width, height, readBuffer);
+
+    console.log(readBuffer)
+    
+    // renderer.clear();
+    //renderer.render(bufferScene,camera);
+      
+    //Swap textureA and B
+    // var t = textureA;
+    // textureA = textureB;
+    // textureB = t;
+    // quad.material.map = textureB.texture;
+    // bufferMaterial.uniforms.bufferTexture.value = textureA.texture;
+
+    //Finally, draw to the screen
+    renderer.setRenderTarget(null);
+    renderer.render( scene, camera );
+}
+render();
+
+       </script>
+    </head>
+    <body>
+        <!-- <canvas width="640px" height="480px" id="canvas_3d"></canvas> -->
+    </body>
+</html>

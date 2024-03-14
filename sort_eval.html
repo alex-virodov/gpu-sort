@@ -175,10 +175,8 @@ const dummyPosBuffer = new Float32Array(numPointsX * numPointsY);
     scene.add( points );
 }
 
-function sort1() {
-    // Intentionally the most simple (thus inefficient) sorting method just to check correctness.
+function makeCpuIndexDepthPairArray() {
     let arr = [];
-    console.time("sort1");
 
     points.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, points.matrixWorld);
     const te = points.modelViewMatrix.elements;
@@ -194,6 +192,14 @@ function sort1() {
         const depth = te[2] * x + te[6] * y + te[10] * z + te[14];
         arr.push([i, depth]);
     }
+
+    return arr;
+}
+
+function sort1() {
+    // Intentionally the most simple (thus inefficient) sorting method just to check correctness.
+    console.time("sort1");
+    let arr = makeCpuIndexDepthPairArray();
     arr.sort(function (a, b) { return a[1] - b[1];})
 
     for (let i = 0; i < numPointsX * numPointsY; i++) {
@@ -284,9 +290,11 @@ function sort3() {
         sort3_sizeList[i] = ((sort3_sizeList[i] - minDepth) * depthInv) | 0;
         sort3_counts0[sort3_sizeList[i]]++;
     }
+
     for (let i = 1; i < 256 * 256; i++)
-    sort3_starts0[i] = sort3_starts0[i - 1] + sort3_counts0[i - 1];
+        sort3_starts0[i] = sort3_starts0[i - 1] + sort3_counts0[i - 1];
     // depthIndex = new Uint32Array(vertexCount);
+
     const depthIndex = indexBuffer;
     for (let i = 0; i < sort3_vertexCount; i++)
         depthIndex[sort3_starts0[sort3_sizeList[i]]++] = i;
@@ -295,12 +303,55 @@ function sort3() {
     console.timeEnd("sort3");    
 }
 
+function sort4() {
+    // bitonic cpu for correctness test.
+    // See discussion in https://developer.nvidia.com/gpugems/gpugems2/part-vi-simulation-and-numerical-algorithms/chapter-46-improved-gpu-sorting
+    // (Note that I am not going to implement some of the optimizations, instead relying on gpu cache and fragment shader sheer speed).
+    console.time("sort4");
+    let arr = makeCpuIndexDepthPairArray();
+    const n = numPointsX * numPointsY;
 
-var sortRuns = 600;
+    // ported to js from https://en.wikipedia.org/wiki/Bitonic_sorter#Example_code
+    // Assuming n is power of 2.
+
+    // given an array arr of length n, this code sorts it in place
+    // all indices run from 0 to n-1
+    for (let k = 2; k <= n; k *= 2) { // k is doubled every iteration
+        for (let j = k/2; j > 0; j /= 2) { // j is halved at every iteration, with truncation of fractional parts
+            for (let i = 0; i < n; i++)  {
+                const l = i ^ j;
+                if (l > i) {
+                    const key_i = arr[i][1];
+                    const key_l = arr[l][1];
+                    if (  ((i & k) == 0) && (key_i > key_l)
+                       || ((i & k) != 0) && (key_i < key_l)) {
+                            // swap the elements arr[i] and arr[l]
+                            let tmp = arr[i];
+                            arr[i] = arr[l];
+                            arr[l] = tmp;
+                    }
+                }
+            }
+        }
+    }
+
+    // Same as above, but the outer loop is n so that it can be mapped easier to a shader.
+    
+
+    for (let i = 0; i < numPointsX * numPointsY; i++) {
+        indexBuffer[i] = arr[i][0];
+    }
+    // console.log(indexBuffer);
+    indexTexture.needsUpdate = true;
+    console.timeEnd("sort4");
+}
+
+
+var sortRuns = 4;
 function animate() {
 	requestAnimationFrame( animate );
     if (sortRuns > 0) {
-        sort3();
+        sort4();
         sortRuns--;
     }
 
