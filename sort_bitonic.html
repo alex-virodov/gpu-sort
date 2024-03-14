@@ -10,25 +10,6 @@
         }
         </script>
 
-        <script type="x-shader/x-fragment" id="screenquad_vertexshader">
-			void main() {
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-			}
-		</script>        
-
-        <script type="x-shader/x-fragment" id="screenquad_fragmentshader">
-            uniform vec2 res;
-			void main() {
-                gl_FragColor = vec4(gl_FragCoord.xy / res.xy, 0.0, 1.0);
-			}
-		</script>        
-
-        <script type="x-shader/x-fragment" id="first_pass_vertexshader">
-			void main() {
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-			}
-		</script>        
-
         <script type="x-shader/x-fragment" id="first_pass_fragmentshader">
             // First pass - transform points by a 3x3 matrix (a 4x4 is not necessary as it only
             // adds a constant value to depth). Write depth (R) and index (G).
@@ -109,13 +90,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 var scene;
 var camera;
 var renderer;
-var width = 64;
-var height = 64;
-var numPointsX = width;  // todo: have either width/height or probably best numPointsX/numPointsY.
-var numPointsY = height;
+var numPointsX = 64;
+var numPointsY = 64;
 var stride = 4;
-var finalMaterial;
-var quad;
 
 var pointBuffer;
 var pointTexture;
@@ -130,7 +107,9 @@ var bitonicPassMaterial;
 var bitonicPassObject;
 var bitonicPassScene;
 
-var plane = new THREE.PlaneGeometry( width, height );
+var finalMaterial;
+
+var plane = new THREE.PlaneGeometry( numPointsX, numPointsY );
 
 function pointTextureSetup() {
     pointBuffer = new Float32Array(numPointsX * numPointsY * stride);
@@ -159,8 +138,8 @@ function pingPongTextureSetup() {
         format: THREE.RGFormat,
         type: THREE.FloatType,
     };
-    textureA = new THREE.WebGLRenderTarget( width, height, textureParams);
-    textureB = new THREE.WebGLRenderTarget( width, height, textureParams);
+    textureA = new THREE.WebGLRenderTarget( numPointsX, numPointsY, textureParams);
+    textureB = new THREE.WebGLRenderTarget( numPointsX, numPointsY, textureParams);
 }
 
 function firstPassSetup() {
@@ -168,7 +147,7 @@ function firstPassSetup() {
     firstPassMaterial = new THREE.ShaderMaterial( {
         uniforms: {
             pointTexture: { type: "t", value: pointTexture },
-            res : {type: 'v2', value: new THREE.Vector2(width,height) },
+            res : {type: 'v2', value: new THREE.Vector2(numPointsX, numPointsY) },
             transform: {type: 'm3', value: new THREE.Matrix3() }
         },
         fragmentShader: document.getElementById( 'first_pass_fragmentshader' ).textContent
@@ -183,7 +162,7 @@ function bitonicPassSetup() {
     bitonicPassMaterial = new THREE.ShaderMaterial( {
         uniforms: {
             listTexture: { type: "t", value: null },
-            res : {type: 'v2', value: new THREE.Vector2(width,height) },
+            res : {type: 'v2', value: new THREE.Vector2(numPointsX, numPointsY) },
             kj: {type: 'v2', value: new THREE.Vector2() } // todo: how to pass int values?
         },
         fragmentShader: document.getElementById( 'bitonic_fragmentshader' ).textContent
@@ -202,38 +181,45 @@ function setup() {
     //This is the basic scene setup
     scene = new THREE.Scene();
     //Note that we're using an orthographic camera here rather than a prespective
-    camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+    camera = new THREE.OrthographicCamera( numPointsX / - 2, numPointsX / 2, numPointsY / 2, numPointsY / - 2, 1, 1000 );
     camera.position.z = 2;
 
     renderer = new THREE.WebGLRenderer();
-    renderer.setSize( width, height );
+    renderer.setSize( numPointsX, numPointsY );
     renderer.domElement.style.border = "1px solid black"; 
     document.body.appendChild( renderer.domElement );
 
     //Draw textureB to screen 
     finalMaterial =  new THREE.MeshBasicMaterial( {map: textureB.texture});
-    quad = new THREE.Mesh( plane, finalMaterial );
+    let quad = new THREE.Mesh( plane, finalMaterial );
     scene.add(quad);
 }
 
 setup();
 
+let numFramesToRender = 60; // First few frames seem to be slow.
+let frameCounter = 0;
 
-//Render everything!
 function render() {
+    if (numFramesToRender > 0) {
+        requestAnimationFrame( render );
+        numFramesToRender--;
+        frameCounter++;
+    }
 
-    // requestAnimationFrame( render );
-
-    //Draw to textureB
+    // First pass - transform xyz points by a transform and store only z-value and index.
     renderer.setRenderTarget(textureB);
     renderer.render(firstPassScene, camera);
 
     let readFBO = textureB;
     let writeFBO = textureA;
-
-    console.time("bitonic dispatch");
+    
+    const framesToLogTiming = 120;
+    if (frameCounter < framesToLogTiming) {
+        console.time("bitonic dispatch");
+    }
     let passCounter = 0;
-    for (let k = 2; k <= width * height; k = k * 2) {
+    for (let k = 2; k <= numPointsX * numPointsY; k = k * 2) {
         for (let j = k / 2; j > 0; j = Math.floor(j / 2)) {
             // console.log(`k=${k} j=${j}`);
             renderer.setRenderTarget(writeFBO);
@@ -250,46 +236,47 @@ function render() {
             passCounter++;
         }
     }
-    console.timeEnd("bitonic dispatch");
-    console.log(`passes = ${passCounter}`);
 
-    // renderer.setRenderTarget(writeFBO);
-    // bitonicPassMaterial.uniforms.kj.value.x = 4;
-    // bitonicPassMaterial.uniforms.kj.value.y = 2;
-    // bitonicPassMaterial.uniforms.listTexture.value = readFBO.texture;
-    // renderer.render(bitonicPassScene, camera);
+    // Note: final FBO is the readFBO because the buffers got swapped. The final result was written
+    // to writeFBO and swapped on loop exit to be in readFBO.
+    const finalFBO = readFBO;
 
-
-    const readBuffer = new Float32Array(width * height * 2);
-    // Note: reading from readFBO because the buffers got swapped. The final result was written
-    // to writeFBO and swapped to be in readFBO.
-    renderer.readRenderTargetPixels(readFBO, 0, 0, width, height, readBuffer);
-
-    console.log(readBuffer);
-    
-    // Verify that the array is sorted and the value at index is as expected (assuming transform matrix is identity).
-    let isSorted = true;
-    let isGoodIndex = true;
-    for (let i = 0; i < width * height - 1; ++i) {
-        const thisIndex = readBuffer[i*2 + 1];
-        const thisValue = readBuffer[i*2 + 0];
-        const nextValue = readBuffer[(i+1)*2 + 0];
-
-        if (thisValue > nextValue) {
-            console.log(`Not sorted! i=${i} value[i]=${thisValue} value[i+1]=${nextValue}`);
-            isSorted = false;
-        }
-
-        if (thisValue != pointBuffer[thisIndex*4+2]) {
-            console.log(`Bad index! i=${i} thisIndex=${thisIndex} thisValue=${thisValue} pointBuffer[thisIndex*4+2]=${pointBuffer[thisIndex*4+2]}`);
-            isGoodIndex = false;
-        }
-
+    if (frameCounter < framesToLogTiming) {
+        console.timeEnd("bitonic dispatch");
+        console.log(`frameCounter=${frameCounter} passes = ${passCounter}`);
     }
-    console.log(`isSorted=${isSorted} isGoodIndex=${isGoodIndex}`);
+
+    // Verify that the array is sorted and the value at index is as expected (assuming transform matrix is identity).
+    if (frameCounter == 0) {
+        const readBuffer = new Float32Array(numPointsX * numPointsY * 2);
+        renderer.readRenderTargetPixels(finalFBO, 0, 0, numPointsX, numPointsY, readBuffer);
+
+        // console.log(readBuffer);
+        
+        let isSorted = true;
+        let isGoodIndex = true;
+        for (let i = 0; i < numPointsX * numPointsY - 1; ++i) {
+            const thisIndex = readBuffer[i*2 + 1];
+            const thisValue = readBuffer[i*2 + 0];
+            const nextValue = readBuffer[(i+1)*2 + 0];
+
+            if (thisValue > nextValue) {
+                console.log(`Not sorted! i=${i} value[i]=${thisValue} value[i+1]=${nextValue}`);
+                isSorted = false;
+            }
+
+            if (thisValue != pointBuffer[thisIndex*4+2]) {
+                console.log(`Bad index! i=${i} thisIndex=${thisIndex} thisValue=${thisValue} pointBuffer[thisIndex*4+2]=${pointBuffer[thisIndex*4+2]}`);
+                isGoodIndex = false;
+            }
+
+        }
+        console.log(`isSorted=${isSorted} isGoodIndex=${isGoodIndex}`);
+    }
 
     //Finally, draw to the screen
     renderer.setRenderTarget(null);
+    finalMaterial.map = finalFBO.texture;
     renderer.render( scene, camera );
 }
 render();
@@ -297,6 +284,5 @@ render();
        </script>
     </head>
     <body>
-        <!-- <canvas width="640px" height="480px" id="canvas_3d"></canvas> -->
     </body>
 </html>
