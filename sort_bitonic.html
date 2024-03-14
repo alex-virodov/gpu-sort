@@ -109,14 +109,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 var scene;
 var camera;
 var renderer;
-var width = 4;
-var height = 4;
+var width = 64;
+var height = 64;
 var numPointsX = width;  // todo: have either width/height or probably best numPointsX/numPointsY.
 var numPointsY = height;
 var stride = 4;
 var finalMaterial;
 var quad;
 
+var pointBuffer;
 var pointTexture;
 var textureA;
 var textureB;
@@ -132,13 +133,13 @@ var bitonicPassScene;
 var plane = new THREE.PlaneGeometry( width, height );
 
 function pointTextureSetup() {
-    const pointBuffer = new Float32Array(numPointsX * numPointsY * stride);
+    pointBuffer = new Float32Array(numPointsX * numPointsY * stride);
 
     const boxSize = 2;
     const rng = new Math.seedrandom(1);
     for (let i = 0; i < pointBuffer.length; i++) {
-        // pointBuffer[i] = rng.quick() * boxSize * 2 - boxSize;
-        pointBuffer[i] = Math.round((rng.quick() * boxSize * 2) * 100) + 100;
+        pointBuffer[i] = rng.quick() * boxSize * 2 - boxSize;
+        // pointBuffer[i] = Math.round((rng.quick() * boxSize * 2) * 100) + 100;
     }
     // console.log(pointBuffer);
 
@@ -264,17 +265,28 @@ function render() {
     // to writeFBO and swapped to be in readFBO.
     renderer.readRenderTargetPixels(readFBO, 0, 0, width, height, readBuffer);
 
-    console.log(readBuffer)
+    console.log(readBuffer);
     
-    // renderer.clear();
-    //renderer.render(bufferScene,camera);
-      
-    //Swap textureA and B
-    // var t = textureA;
-    // textureA = textureB;
-    // textureB = t;
-    // quad.material.map = textureB.texture;
-    // bufferMaterial.uniforms.bufferTexture.value = textureA.texture;
+    // Verify that the array is sorted and the value at index is as expected (assuming transform matrix is identity).
+    let isSorted = true;
+    let isGoodIndex = true;
+    for (let i = 0; i < width * height - 1; ++i) {
+        const thisIndex = readBuffer[i*2 + 1];
+        const thisValue = readBuffer[i*2 + 0];
+        const nextValue = readBuffer[(i+1)*2 + 0];
+
+        if (thisValue > nextValue) {
+            console.log(`Not sorted! i=${i} value[i]=${thisValue} value[i+1]=${nextValue}`);
+            isSorted = false;
+        }
+
+        if (thisValue != pointBuffer[thisIndex*4+2]) {
+            console.log(`Bad index! i=${i} thisIndex=${thisIndex} thisValue=${thisValue} pointBuffer[thisIndex*4+2]=${pointBuffer[thisIndex*4+2]}`);
+            isGoodIndex = false;
+        }
+
+    }
+    console.log(`isSorted=${isSorted} isGoodIndex=${isGoodIndex}`);
 
     //Finally, draw to the screen
     renderer.setRenderTarget(null);
