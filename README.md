@@ -3,6 +3,7 @@
 The performance of GPU Bitonic sort [[1]] is roughly the same as CPU counting sort [[2]], at least in the context of rendering point clouds.
 
 ![Results chart](results_laptop_chart.png)
+
 (hardware specs and measurements are in `results_laptop.txt` and more refined in `results_laptop_analysis.ods`).
 
 ## Motivation
@@ -18,7 +19,7 @@ The CPU sorting with GPU point cloud visualization is implemented in [`sort_cpu.
 2. Better and more automated performance measurement so there's less manual work.
 3. Detailed profiling in e.g. Nvidia Nsight to see if the GPU bitonic sort can be improved. Currently seems like memory bottleneck for each pass.
 
-## References
+
 
 [1]: https://en.wikipedia.org/wiki/Bitonic_sorter
 
