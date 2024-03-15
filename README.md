@@ -7,7 +7,7 @@ The performance of GPU Bitonic sort [[1]] is roughly the same as CPU counting so
 (hardware specs and measurements are in `results_laptop.txt` and more refined in `results_laptop_analysis.ods`).
 
 ## Visualization
-![visualization video](visualization_video.mp4)
+![visualization video](visualization_video.gif)
 
 ## Motivation
 For Gaussian Splatting [[3]], visualization requires rendering of transparent primitives, and to render them correctly, they must be sorted [[4]]. A WebGL implementation of Gaussian splatting viewer [[5]] uses counting sort on CPU, and I was wondering if a GPU sort would be better. A review article [[6]] suggested Bitonic sort, and provided parts of implementation, but I implemented the sort mostly from the wikipedia code and picture [[7]].
