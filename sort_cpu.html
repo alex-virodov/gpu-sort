@@ -10,7 +10,7 @@
         }
         </script>
 
-		<script type="x-shader/x-vertex" id="vertexshader">
+        <script type="x-shader/x-vertex" id="vertexshader">
             varying vec4 vColor;
             const vec2 viewportSize = vec2(400, 400); // todo: pass from js code.
             uniform sampler2D dataTexture;
@@ -39,18 +39,18 @@
                 // Color according to draw order.
                 // vColor = vec4(0.0, float(posIndex) / float(indexTextureSize.x * indexTextureSize.y), 0.0, 1.0);
 
-			}
+            }
 
-		</script>
+        </script>
 
         <script type="x-shader/x-fragment" id="fragmentshader">
-			varying vec4 vColor;
+            varying vec4 vColor;
             varying vec3 vCov;
 
-			void main() {
+            void main() {
                 gl_FragColor = vec4(vColor.rgb, 1.0);
-			}
-		</script>        
+            }
+        </script>        
 
 
         <script type="module">
@@ -349,7 +349,7 @@ function sort4() {
 
 var sortRuns = 10;
 function animate() {
-	requestAnimationFrame( animate );
+    requestAnimationFrame( animate );
     if (sortRuns > 0) {
         sort4();
         sortRuns--;
@@ -360,7 +360,7 @@ function animate() {
     // cube.rotation.y += 0.01;
     // controls.update()
 
-	renderer.render( scene, camera );
+    renderer.render( scene, camera );
     // console.log('modelview matrix=', points.modelViewMatrix);
 }
 animate();

@@ -19,14 +19,14 @@
             uniform sampler2D pointTexture;
             uniform vec2 res;
 
-			void main() {
+            void main() {
                 ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
                 int index = int(icoord.y * int(res.x) + icoord.x);
                 vec4 point = texelFetch(pointTexture, icoord, 0);
                 vec3 point_transformed = mat3(transform) * point.xyz; // Assuming compiler will discard x/y/w automatically.
                 gl_FragColor = vec4(point_transformed.z, float(index), 0.0, 1.0);
-			}
-		</script>        
+            }
+        </script>        
 
         <script type="x-shader/x-fragment" id="bitonic_fragmentshader">
             // Bitonic sort. See picture in https://en.wikipedia.org/wiki/Bitonic_sorter#How_the_algorithm_works
@@ -36,7 +36,7 @@
             uniform vec2 res;
             uniform vec2 kj; // the k and j indices of the pass. // todo: how to pass int values?
 
-			void real_bitonic_implementation() {
+            void real_bitonic_implementation() {
                 ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
                 int i = int(icoord.y * int(res.x) + icoord.x);
                 int k = int(kj.r);
@@ -78,19 +78,19 @@
                     // choose max value.
                     gl_FragColor = vec4(listItem_i.r > listItem_l.r ? listItem_i.rg : listItem_l.rg, 0.0, 1.0);
                 }
-			}
+            }
 
-			void generate_index_only_no_texture_fetch() {
+            void generate_index_only_no_texture_fetch() {
                 ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
                 int i = int(icoord.y * int(res.x) + icoord.x);
                 gl_FragColor = vec4(0.0, float(i), 0.0, 1.0);
-			}
+            }
 
             void texture_passthrough() {
                 ivec2 icoord = ivec2(gl_FragCoord.xy - 0.5); // integer texel coordinate
                 vec4 listItem_i = texelFetch(listTexture, icoord, 0);
                 gl_FragColor = vec4(listItem_i.rg, 0.0, 1.0);
-			}
+            }
 
             void main() {
                 real_bitonic_implementation();
@@ -129,18 +129,18 @@
                 // Color according to draw order.
                 // vColor = vec4(0.0, float(posIndex) / float(indexTextureSize.x * indexTextureSize.y), 0.0, 1.0);
 
-			}
+            }
 
-		</script>
+        </script>
 
         <script type="x-shader/x-fragment" id="visualization_fragmentshader">
-			varying vec4 vColor;
+            varying vec4 vColor;
             varying vec3 vCov;
 
-			void main() {
+            void main() {
                 gl_FragColor = vec4(vColor.rgb, 1.0);
-			}
-		</script>        
+            }
+        </script>        
 
 
         <script type="module">
@@ -151,8 +151,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // Starting point: https://stackoverflow.com/questions/75565926/threejs-pingpong-approach-for-rendering-to-texture-no-errors-nothing-renderin
 
 var renderer;
-var numPointsX = 64;
-var numPointsY = 64;
+var numPointsX = 512;
+var numPointsY = 512;
 var stride = 4;
 
 var pointBuffer;
