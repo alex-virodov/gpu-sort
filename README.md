@@ -9,6 +9,8 @@ The performance of GPU Bitonic sort [[1]] is roughly the same as CPU counting so
 ## Visualization
 ![visualization video](visualization_video.gif)
 
+This is a visualization of the point cloud rendering, with depth test disabled ([sort_gpu_bitonic.html:259](sort_gpu_bitonic.html#L259)). If I disable the sorting, it can be clearly seen that the rendering order is wrong as the point cloud cube rotates.
+
 ## Motivation
 For Gaussian Splatting [[3]], visualization requires rendering of transparent primitives, and to render them correctly, they must be sorted [[4]]. A WebGL implementation of Gaussian splatting viewer [[5]] uses counting sort on CPU, and I was wondering if a GPU sort would be better. A review article [[6]] suggested Bitonic sort, and provided parts of implementation, but I implemented the sort mostly from the wikipedia code and picture [[7]].
 
