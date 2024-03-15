@@ -1,0 +1,336 @@
+Specs:
+Lenovo IdeaPad S340
+Processor	AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx, 2100 Mhz, 4 Core(s), 8 Logical Processor(s)
+Installed Physical Memory (RAM)	8.00 GB
+OS Version	Windows 10.0.19045 Build 19045
+Google Chrome Version 122.0.6261.129 (Official Build) (64-bit)
+
+
+GPU sort (fps):
+
+Bitonic
+64x64 60
+128x128 60
+256x256 60
+512x256 60
+512x384 44
+512x512 30
+1024x512 13
+1024x1024 6
+
+Texture passthrough
+64x64 60
+128x128 60
+256x256 60
+512x256 60
+512x384 44
+512x512 31
+1024x512 13
+1024x1024 6
+
+Generate index (no texture fetch)
+64x64 60
+128x128 60
+256x256 60
+512x256 60
+512x384 60
+512x512 60
+1024x512 42
+1024x1024 19
+
+No bitonic passes (only first pass to generate indices)
+1024x1024 60
+2048x1024 60
+2048x2048 34
+4096x2048 15
+4096x4096 9
+
+
+CPU sort(ms):
+sort1
+64x64
+sort_eval.html:210 sort1: 2.208984375 ms
+sort_eval.html:210 sort1: 2.3359375 ms
+sort_eval.html:210 sort1: 1.77099609375 ms
+sort_eval.html:210 sort1: 2.326904296875 ms
+sort_eval.html:210 sort1: 1.958984375 ms
+sort_eval.html:210 sort1: 2.382080078125 ms
+sort_eval.html:210 sort1: 3.030029296875 ms
+sort_eval.html:210 sort1: 2.322021484375 ms
+sort_eval.html:210 sort1: 1.467041015625 ms
+
+128x128
+sort_eval.html:210 sort1: 11.458984375 ms
+sort_eval.html:210 sort1: 11.05908203125 ms
+sort_eval.html:210 sort1: 8.786865234375 ms
+sort_eval.html:210 sort1: 7.8330078125 ms
+sort_eval.html:210 sort1: 6.88916015625 ms
+sort_eval.html:210 sort1: 8.663818359375 ms
+sort_eval.html:210 sort1: 7.8359375 ms
+sort_eval.html:210 sort1: 7.52294921875 ms
+sort_eval.html:210 sort1: 8.194091796875 ms
+
+256x256
+sort_eval.html:210 sort1: 48.333984375 ms
+sort_eval.html:210 sort1: 60.468017578125 ms
+sort_eval.html:210 sort1: 48.555908203125 ms
+sort_eval.html:210 sort1: 45.43017578125 ms
+sort_eval.html:210 sort1: 47.31103515625 ms
+sort_eval.html:210 sort1: 46.451171875 ms
+sort_eval.html:210 sort1: 50.034912109375 ms
+sort_eval.html:210 sort1: 61.844970703125 ms
+sort_eval.html:210 sort1: 44.9501953125 ms
+
+512x256
+sort_eval.html:210 sort1: 79.225830078125 ms
+sort_eval.html:210 sort1: 100.22607421875 ms
+sort_eval.html:210 sort1: 82.01904296875 ms
+sort_eval.html:210 sort1: 87.458984375 ms
+sort_eval.html:210 sort1: 110.078125 ms
+sort_eval.html:210 sort1: 92.22705078125 ms
+sort_eval.html:210 sort1: 93.290771484375 ms
+sort_eval.html:210 sort1: 89.33203125 ms
+sort_eval.html:210 sort1: 104.2880859375 ms
+
+512x384
+sort_eval.html:210 sort1: 131.079833984375 ms
+sort_eval.html:210 sort1: 148.054931640625 ms
+sort_eval.html:210 sort1: 154.0810546875 ms
+sort_eval.html:210 sort1: 132.544921875 ms
+sort_eval.html:210 sort1: 133.615966796875 ms
+sort_eval.html:210 sort1: 172.64404296875 ms
+sort_eval.html:210 sort1: 133.120849609375 ms
+sort_eval.html:210 sort1: 121.43798828125 ms
+sort_eval.html:210 sort1: 148.31689453125 ms
+
+512x512
+sort_eval.html:210 sort1: 274.19384765625 ms
+sort_eval.html:210 sort1: 211.907958984375 ms
+sort_eval.html:210 sort1: 204.76708984375 ms
+sort_eval.html:210 sort1: 201.93896484375 ms
+sort_eval.html:210 sort1: 180.80615234375 ms
+sort_eval.html:210 sort1: 196.02685546875 ms
+sort_eval.html:210 sort1: 170.281005859375 ms
+sort_eval.html:210 sort1: 173.0078125 ms
+sort_eval.html:210 sort1: 234.76904296875 ms
+
+1024x512
+sort_eval.html:210 sort1: 680.305908203125 ms
+sort_eval.html:210 sort1: 577.406982421875 ms
+sort_eval.html:210 sort1: 545.518798828125 ms
+sort_eval.html:210 sort1: 576.985107421875 ms
+sort_eval.html:210 sort1: 594.625 ms
+sort_eval.html:210 sort1: 620.05908203125 ms
+sort_eval.html:210 sort1: 550.93310546875 ms
+sort_eval.html:210 sort1: 578.4208984375 ms
+sort_eval.html:210 sort1: 570.10107421875 ms
+
+sort2
+64x64
+sort_eval.html:253 sort2: 1.657958984375 ms
+sort_eval.html:253 sort2: 1.791015625 ms
+sort_eval.html:253 sort2: 1.31689453125 ms
+sort_eval.html:253 sort2: 1.2978515625 ms
+sort_eval.html:253 sort2: 1.51904296875 ms
+sort_eval.html:253 sort2: 1.2900390625 ms
+sort_eval.html:253 sort2: 1.532958984375 ms
+sort_eval.html:253 sort2: 1.264892578125 ms
+sort_eval.html:253 sort2: 1.666015625 ms
+
+128x128
+sort_eval.html:253 sort2: 4.31103515625 ms
+sort_eval.html:253 sort2: 3.6640625 ms
+sort_eval.html:253 sort2: 4.137939453125 ms
+sort_eval.html:253 sort2: 5.4599609375 ms
+sort_eval.html:253 sort2: 4.169921875 ms
+sort_eval.html:253 sort2: 3.181884765625 ms
+sort_eval.html:253 sort2: 4.239990234375 ms
+sort_eval.html:253 sort2: 4.76806640625 ms
+sort_eval.html:253 sort2: 3.680908203125 ms
+
+256x256
+sort_eval.html:253 sort2: 11.761962890625 ms
+sort_eval.html:253 sort2: 11.68115234375 ms
+sort_eval.html:253 sort2: 10.260009765625 ms
+sort_eval.html:253 sort2: 9.534912109375 ms
+sort_eval.html:253 sort2: 17.462158203125 ms
+sort_eval.html:253 sort2: 6.94287109375 ms
+sort_eval.html:253 sort2: 13.195068359375 ms
+sort_eval.html:253 sort2: 11.041015625 ms
+sort_eval.html:253 sort2: 13.859130859375 ms
+
+512x256
+sort_eval.html:253 sort2: 19.802978515625 ms
+sort_eval.html:253 sort2: 18.705078125 ms
+sort_eval.html:253 sort2: 21.866943359375 ms
+sort_eval.html:253 sort2: 39.8720703125 ms
+sort_eval.html:253 sort2: 18.537841796875 ms
+sort_eval.html:253 sort2: 23.296875 ms
+sort_eval.html:253 sort2: 17.697021484375 ms
+sort_eval.html:253 sort2: 18.423095703125 ms
+sort_eval.html:253 sort2: 16.18896484375 ms
+
+512x384
+sort_eval.html:253 sort2: 32.365966796875 ms
+sort_eval.html:253 sort2: 35.647216796875 ms
+sort_eval.html:253 sort2: 38.22900390625 ms
+sort_eval.html:253 sort2: 25.96923828125 ms
+sort_eval.html:253 sort2: 29.43115234375 ms
+sort_eval.html:253 sort2: 24.828857421875 ms
+sort_eval.html:253 sort2: 25.051025390625 ms
+sort_eval.html:253 sort2: 25.18505859375 ms
+sort_eval.html:253 sort2: 19.86181640625 ms
+
+512x512
+sort_eval.html:253 sort2: 48.8251953125 ms
+sort_eval.html:253 sort2: 47.0419921875 ms
+sort_eval.html:253 sort2: 53.22998046875 ms
+sort_eval.html:253 sort2: 41.31787109375 ms
+sort_eval.html:253 sort2: 39.165771484375 ms
+sort_eval.html:253 sort2: 28.824951171875 ms
+sort_eval.html:253 sort2: 36.74609375 ms
+sort_eval.html:253 sort2: 49.700927734375 ms
+sort_eval.html:253 sort2: 45.27392578125 ms
+
+1024x512
+sort_eval.html:253 sort2: 100.72607421875 ms
+sort_eval.html:253 sort2: 99.31005859375 ms
+sort_eval.html:253 sort2: 82.741943359375 ms
+sort_eval.html:253 sort2: 67.7060546875 ms
+sort_eval.html:253 sort2: 65.095947265625 ms
+sort_eval.html:253 sort2: 96.755126953125 ms
+sort_eval.html:253 sort2: 61.513916015625 ms
+sort_eval.html:253 sort2: 73.304931640625 ms
+sort_eval.html:253 sort2: 109.9169921875 ms
+
+1024x1024
+sort_eval.html:253 sort2: 163.282958984375 ms
+sort_eval.html:253 sort2: 186.27490234375 ms
+sort_eval.html:253 sort2: 178.029052734375 ms
+sort_eval.html:253 sort2: 192.6220703125 ms
+sort_eval.html:253 sort2: 166.40380859375 ms
+sort_eval.html:253 sort2: 148.278076171875 ms
+sort_eval.html:253 sort2: 117.552001953125 ms
+sort_eval.html:253 sort2: 121.219970703125 ms
+sort_eval.html:253 sort2: 141.329833984375 ms
+
+
+sort3
+64x64
+sort_eval.html:303 sort3: 2.14794921875 ms
+sort_eval.html:303 sort3: 1.56591796875 ms
+sort_eval.html:303 sort3: 2.16796875 ms
+sort_eval.html:303 sort3: 2.093994140625 ms
+sort_eval.html:303 sort3: 1.424072265625 ms
+sort_eval.html:303 sort3: 0.81005859375 ms
+sort_eval.html:303 sort3: 0.882080078125 ms
+sort_eval.html:303 sort3: 1.453125 ms
+sort_eval.html:303 sort3: 1.670166015625 ms
+
+128x128
+sort_eval.html:303 sort3: 4.212890625 ms
+sort_eval.html:303 sort3: 4.89599609375 ms
+sort_eval.html:303 sort3: 4.3779296875 ms
+sort_eval.html:303 sort3: 7.55712890625 ms
+sort_eval.html:303 sort3: 6.10302734375 ms
+sort_eval.html:303 sort3: 3.113037109375 ms
+sort_eval.html:303 sort3: 2.489990234375 ms
+sort_eval.html:303 sort3: 4.422119140625 ms
+sort_eval.html:303 sort3: 3.093017578125 ms
+
+256x256
+sort_eval.html:303 sort3: 8.344970703125 ms
+sort_eval.html:303 sort3: 12.054931640625 ms
+sort_eval.html:303 sort3: 11.62109375 ms
+sort_eval.html:303 sort3: 10.609130859375 ms
+sort_eval.html:303 sort3: 7.280029296875 ms
+sort_eval.html:303 sort3: 14.84912109375 ms
+sort_eval.html:303 sort3: 9.5859375 ms
+sort_eval.html:303 sort3: 10.52001953125 ms
+sort_eval.html:303 sort3: 15.9130859375 ms
+
+512x256
+sort_eval.html:303 sort3: 24.1240234375 ms
+sort_eval.html:303 sort3: 18.097900390625 ms
+sort_eval.html:303 sort3: 19.778076171875 ms
+sort_eval.html:303 sort3: 22.005126953125 ms
+sort_eval.html:303 sort3: 17.95703125 ms
+sort_eval.html:303 sort3: 32.5390625 ms
+sort_eval.html:303 sort3: 21.66796875 ms
+sort_eval.html:303 sort3: 23.577880859375 ms
+sort_eval.html:303 sort3: 25.3720703125 ms
+
+512x384
+sort_eval.html:303 sort3: 34.0810546875 ms
+sort_eval.html:303 sort3: 33.3759765625 ms
+sort_eval.html:303 sort3: 33.35009765625 ms
+sort_eval.html:303 sort3: 28.298095703125 ms
+sort_eval.html:303 sort3: 43.43408203125 ms
+sort_eval.html:303 sort3: 27.1279296875 ms
+sort_eval.html:303 sort3: 42.4169921875 ms
+sort_eval.html:303 sort3: 33.18701171875 ms
+sort_eval.html:303 sort3: 29.79296875 ms
+
+512x512
+sort_eval.html:303 sort3: 38.301025390625 ms
+sort_eval.html:303 sort3: 41.198974609375 ms
+sort_eval.html:303 sort3: 58.37890625 ms
+sort_eval.html:303 sort3: 59.553955078125 ms
+sort_eval.html:303 sort3: 37.489013671875 ms
+sort_eval.html:303 sort3: 28.89892578125 ms
+sort_eval.html:303 sort3: 34.296142578125 ms
+sort_eval.html:303 sort3: 28.69384765625 ms
+sort_eval.html:303 sort3: 32.738037109375 ms
+
+1024x512
+sort_eval.html:303 sort3: 101.56103515625 ms
+sort_eval.html:303 sort3: 71.76318359375 ms
+sort_eval.html:303 sort3: 87.108154296875 ms
+sort_eval.html:303 sort3: 88.197021484375 ms
+sort_eval.html:303 sort3: 74.134033203125 ms
+sort_eval.html:303 sort3: 85.888916015625 ms
+sort_eval.html:303 sort3: 93.501953125 ms
+sort_eval.html:303 sort3: 89.994873046875 ms
+sort_eval.html:303 sort3: 100.591064453125 ms
+
+1024x1024
+sort_eval.html:303 sort3: 165.989013671875 ms
+sort_eval.html:303 sort3: 186.39013671875 ms
+sort_eval.html:303 sort3: 139.795166015625 ms
+sort_eval.html:303 sort3: 205.80517578125 ms
+sort_eval.html:303 sort3: 173.92919921875 ms
+sort_eval.html:303 sort3: 121.72998046875 ms
+sort_eval.html:303 sort3: 115.029052734375 ms
+sort_eval.html:303 sort3: 153.47705078125 ms
+sort_eval.html:303 sort3: 110.926025390625 ms
+
+sort4
+64x64
+sort_eval.html:346 sort4: 62.72314453125 ms
+sort_eval.html:346 sort4: 55.126953125 ms
+sort_eval.html:346 sort4: 56.0361328125 ms
+sort_eval.html:346 sort4: 70.43701171875 ms
+sort_eval.html:346 sort4: 59.389892578125 ms
+sort_eval.html:346 sort4: 62.779052734375 ms
+sort_eval.html:346 sort4: 52.97900390625 ms
+sort_eval.html:346 sort4: 54.54296875 ms
+sort_eval.html:346 sort4: 49.840087890625 ms
+
+128x128
+sort_eval.html:346 sort4: 306.432861328125 ms
+sort_eval.html:346 sort4: 312.446044921875 ms
+sort_eval.html:346 sort4: 270.760986328125 ms
+sort_eval.html:346 sort4: 163.636962890625 ms
+sort_eval.html:346 sort4: 178.43603515625 ms
+sort_eval.html:346 sort4: 161.84912109375 ms
+sort_eval.html:346 sort4: 154.8740234375 ms
+sort_eval.html:346 sort4: 157.61083984375 ms
+sort_eval.html:346 sort4: 179.087158203125 ms
+
+256x256
+512x256
+512x384
+512x512
+1024x512
+1024x1024
+
